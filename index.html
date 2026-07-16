@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مسجّل الساعات التفاعلي | Future Sat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #0f172a;
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col items-center p-4">
+
+    <header class="w-full max-w-md text-center my-6">
+        <h1 class="text-2xl font-bold text-sky-400">Future Sat 🛠️</h1>
+        <p class="text-slate-400 text-sm">نظام تسجيل الساعات الذكي لأبو باسم</p>
+    </header>
+
+    <main class="w-full max-w-md bg-slate-800 rounded-2xl shadow-xl border border-slate-700 p-6 space-y-6">
+        
+        <div class="bg-slate-900 rounded-xl p-4 text-center border border-slate-700">
+            <div id="current-day-name" class="text-xl font-bold text-emerald-400">---</div>
+            <div id="current-date" class="text-sm text-slate-400 mt-1">---</div>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-1">⏰ ساعة الدخول:</label>
+                <div class="flex gap-2">
+                    <input type="time" id="entry-time" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-sky-500">
+                    <button onclick="setCurrentTime('entry-time')" class="bg-sky-600 hover:bg-sky-500 text-xs px-3 rounded-lg text-white font-semibold">الآن</button>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-300 mb-1">⏰ ساعة الخروج:</label>
+                <div class="flex gap-2">
+                    <input type="time" id="exit-time" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-sky-500">
+                    <button onclick="setCurrentTime('exit-time')" class="bg-sky-600 hover:bg-sky-500 text-xs px-3 rounded-lg text-white font-semibold">الآن</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-2">
+            <button onclick="submitWorkDay()" class="col-span-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold py-3 rounded-xl shadow-lg transition duration-200">
+                💾 حفظ يوم عمل
+            </button>
+            <button onclick="submitOffDay()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2.5 rounded-lg transition">
+                🌴 تسجيل عطلة
+            </button>
+            <button onclick="submitFridayOff()" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2.5 rounded-lg transition">
+                🕌 عطلة الجمعة
+            </button>
+        </div>
+
+    </main>
+
+    <section class="w-full max-w-md mt-8 space-y-4">
+        <div class="flex justify-between items-center px-1">
+            <h2 class="text-lg font-bold text-sky-400">📋 السجل الحالي (15 يوم)</h2>
+            <span id="days-count" class="bg-slate-800 border border-slate-700 text-xs text-slate-300 px-2.5 py-1 rounded-full">0 / 15 يوم</span>
+        </div>
+
+        <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-lg">
+            <table class="w-full text-sm text-right">
+                <thead class="bg-slate-900 text-slate-300 text-xs uppercase border-b border-slate-700">
+                    <tr>
+                        <th class="p-3 text-center">اليوم</th>
+                        <th class="p-3 text-center">التاريخ</th>
+                        <th class="p-3 text-center">ساعات العمل</th>
+                        <th class="p-3 text-center">الخصم</th>
+                    </tr>
+                </thead>
+                <tbody id="logs-table-body" class="divide-y divide-slate-700 text-slate-300">
+                    </tbody>
+            </table>
+        </div>
+    </section>
+
+    <script>
+        // مصفوفة الأيام بالعربي
+        const arabicDays = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
+        // تشغيل فوري لتحديد تاريخ ووقت اليوم
+        window.onload = function() {
+            const today = new Date();
+            
+            // تحديد اسم اليوم وتاريخه
+            document.getElementById('current-day-name').innerText = arabicDays[today.getDay()];
+            document.getElementById('current-date').innerText = today.toISOString().split('T')[0];
+
+            // وضع وقت افتراضي ذكي (مثلا الدخول 7 الصبح والخروج 6:30 المسا) لو حب يسجل علطول
+            document.getElementById('entry-time').value = "07:00";
+            document.getElementById('exit-time').value = "18:30";
+        };
+
+        // دالة لتعبئة الوقت الحالي بكبسة زر
+        function setCurrentTime(id) {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById(id).value = `${hours}:${minutes}`;
+        }
+
+        // دالة تجريبية لحفظ اليوم وعرضه بالجدول تحت مؤقتاً
+        function addRowToTable(day, date, hours, discount) {
+            const tbody = document.getElementById('logs-table-body');
+            const row = `<tr class="hover:bg-slate-700/50 transition">
+                <td class="p-3 text-center font-semibold text-slate-200">${day}</td>
+                <td class="p-3 text-center text-xs text-slate-400">${date}</td>
+                <td class="p-3 text-center text-emerald-400">${hours} س</td>
+                <td class="p-3 text-center text-rose-400">${discount} س</td>
+            </tr>`;
+            tbody.innerHTML += row;
+        }
+
+        function submitWorkDay() {
+            const today = new Date();
+            const dayName = arabicDays[today.getDay()];
+            const dateStr = today.toISOString().split('T')[0];
+            
+            const entryVal = document.getElementById('entry-time').value;
+            const exitVal = document.getElementById('exit-time').value;
+
+            if(!entryVal || !exitVal) {
+                alert("الرجاء تحديد أوقات الدخول والخروج أولاً!");
+                return;
+            }
+
+            // حساب الساعات بشكل تجريبي بالواجهة
+            const [entryH, entryM] = entryVal.split(':').map(Number);
+            const [exitH, exitM] = exitVal.split(':').map(Number);
+            
+            let diffMs = ((exitH * 60 + exitM) - (entryH * 60 + entryM)) * 60000;
+            if(diffMs < 0) diffMs += 24 * 60 * 60 * 1000; // لو الخروج بعد منتصف الليل
+
+            const actualHours = (diffMs / 3600000).toFixed(2);
+            const requiredHours = 12.0;
+            const discount = actualHours < requiredHours ? (requiredHours - actualHours).toFixed(2) : "0.00";
+
+            addRowToTable(dayName, dateStr, actualHours, discount);
+            alert(`🎉 تم حفظ بيانات اليوم بنجاح!\nساعات العمل: ${actualHours} ساعة\nالخصم: ${discount} ساعة`);
+        }
+
+        function submitOffDay() {
+            const today = new Date();
+            const dayName = arabicDays[today.getDay()];
+            const dateStr = today.toISOString().split('T')[0];
+            addRowToTable(dayName, dateStr, "عطلة", "0.00");
+            alert("🌴 تم تسجيل اليوم كـ عطلة بنجاح!");
+        }
+
+        function submitFridayOff() {
+            const today = new Date();
+            const dayName = arabicDays[today.getDay()];
+            const dateStr = today.toISOString().split('T')[0];
+            addRowToTable(dayName, dateStr, "عطلة الجمعة", "0.00");
+            alert("🕌 تم تسجيل عطلة الجمعة بنجاح بدون أي خصومات!");
+        }
+    </script>
+</body>
+</html>
