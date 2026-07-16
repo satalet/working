@@ -27,10 +27,13 @@
     <!-- بطاقة التحكم الرئيسية -->
     <main class="w-full max-w-md bg-slate-800 rounded-2xl shadow-xl border border-slate-700 p-6 space-y-6">
         
-        <!-- عرض تاريخ اليوم واليوم الحالي تلقائياً -->
-        <div class="bg-slate-900 rounded-xl p-4 text-center border border-slate-700">
+        <!-- اختيار التاريخ يدوياً وتلقائياً -->
+        <div class="bg-slate-900 rounded-xl p-4 border border-slate-700 text-center space-y-2">
             <div id="current-day-name" class="text-xl font-bold text-emerald-400">---</div>
-            <div id="current-date" class="text-sm text-slate-400 mt-1">---</div>
+            <div class="flex flex-col items-center justify-center">
+                <label class="text-xs text-slate-400 mb-1">📅 تاريخ يوم العمل:</label>
+                <input type="date" id="work-date" onchange="updateDayName()" class="bg-slate-800 border border-slate-600 rounded-lg px-3 py-1.5 text-white text-center focus:outline-none focus:border-sky-500 text-sm">
+            </div>
         </div>
 
         <!-- خانات إدخال الوقت -->
@@ -101,15 +104,31 @@
         const arabicDays = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
         window.onload = function() {
-            const today = new Date();
-            document.getElementById('current-day-name').innerText = arabicDays[today.getDay()];
-            document.getElementById('current-date').innerText = today.toISOString().split('T')[0];
+            // حل مشكلة التوقيت المحلي الفعلي للجهاز
+            const localToday = new Date();
+            const offset = localToday.getTimezoneOffset();
+            const adjustedDate = new Date(localToday.getTime() - (offset * 60 * 1000));
+            const formattedDate = adjustedDate.toISOString().split('T')[0];
+
+            document.getElementById('work-date').value = formattedDate;
+            
+            updateDayName();
+
             document.getElementById('entry-time').value = "07:00";
             document.getElementById('exit-time').value = "18:30";
             
             // جلب البيانات المخزنة من جوجل شيت فور فتح الصفحة
             fetchDataFromGoogle();
         };
+
+        // تحديث اسم اليوم تلقائياً عند تغيير التاريخ بالخانة
+        function updateDayName() {
+            const dateVal = document.getElementById('work-date').value;
+            if (dateVal) {
+                const selectedDate = new Date(dateVal);
+                document.getElementById('current-day-name').innerText = arabicDays[selectedDate.getDay()];
+            }
+        }
 
         function setCurrentTime(id) {
             const now = new Date();
@@ -118,7 +137,7 @@
             document.getElementById(id).value = `${hours}:${minutes}`;
         }
 
-        // دالة لجلب البيانات سحابياً من الجوجل شيت بدون تكرار
+        // جلب البيانات سحابياً من الجوجل شيت بدون تكرار
         async function fetchDataFromGoogle() {
             try {
                 const response = await fetch(SHEETDB_URL);
@@ -134,16 +153,16 @@
                     return;
                 }
 
-                // فلترة البيانات لحذف التكرار بناءً على التاريخ (الاحتفاظ بآخر إدخال فقط)
+                // فلترة البيانات لحذف التكرار بناءً على التاريخ
                 const uniqueRecordsMap = new Map();
                 data.forEach(record => {
                     const date = record["التاريخ"];
                     if (date) {
-                        uniqueRecordsMap.set(date, record); // الـ Map بتحدث القيمة تلقائياً لآخر إدخال
+                        uniqueRecordsMap.set(date, record); 
                     }
                 });
 
-                // تحويل الـ Map لقائمة وعرض آخر 15 يوم فريدين
+                // ترتيب وعرض آخر 15 يوم فريدين بالجدول
                 const uniqueRecordsList = Array.from(uniqueRecordsMap.values()).slice(-15);
 
                 uniqueRecordsList.forEach(record => {
@@ -183,7 +202,7 @@
             }
         }
 
-        // دالة لتحديث السطر بالجدول المحلي بعد الحفظ مباشرة دون الحاجة لإعادة تحميل الصفحة بالكامل
+        // تحديث السطر بالجدول المحلي بعد الحفظ مباشرة
         function updateLocalTable(day, date, hoursStr, discountStr) {
             const tbody = document.getElementById('logs-table-body');
             const rows = tbody.getElementsByTagName('tr');
@@ -218,7 +237,7 @@
                 const newRow = document.createElement('tr');
                 newRow.className = "hover:bg-slate-700/50 transition";
                 newRow.innerHTML = rowContent;
-                tbody.insertBefore(newRow, tbody.firstChild); // إضافة اليوم الجديد في أعلى الجدول
+                tbody.insertBefore(newRow, tbody.firstChild); 
             }
 
             const uniqueDays = tbody.getElementsByTagName('tr').length;
@@ -238,7 +257,7 @@
             return true;
         }
 
-        // دالة إرسال البيانات إلى جوجل شيت وتحديث السجل
+        // إرسال البيانات وتحديث السجل سحابياً ومحلياً
         async function sendDataToGoogle(payload) {
             const btnSave = document.getElementById('btn-save');
             const originalText = btnSave.innerText;
@@ -259,20 +278,18 @@
             };
 
             try {
-                // فحص إذا كان اليوم موجوداً مسبقاً في جوجل شيت لتعديله (PUT) بدلاً من إضافة سطر مكرر
+                // فحص إذا كان اليوم موجوداً مسبقاً في جوجل شيت لتعديله (PUT)
                 const checkResponse = await fetch(`${SHEETDB_URL}/search?التاريخ=${payload.date}`);
                 const existingData = await checkResponse.json();
 
                 let response;
                 if (existingData && existingData.length > 0) {
-                    // تحديث السطر الموجود مسبقاً لمنع التكرار سحابياً
                     response = await fetch(`${SHEETDB_URL}/التاريخ/${payload.date}`, {
                         method: "PUT",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(formattedData)
                     });
                 } else {
-                    // إضافة سطر جديد بالكامل إذا لم يكن مسجلاً
                     response = await fetch(SHEETDB_URL, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -296,9 +313,13 @@
         }
 
         function submitWorkDay() {
-            const today = new Date();
-            const dayName = arabicDays[today.getDay()];
-            const dateStr = today.toISOString().split('T')[0];
+            const dateStr = document.getElementById('work-date').value;
+            if(!dateStr) {
+                alert("الرجاء اختيار تاريخ اليوم!");
+                return;
+            }
+            const selectedDate = new Date(dateStr);
+            const dayName = arabicDays[selectedDate.getDay()];
             
             if (!checkDuplicateAndConfirm(dateStr, dayName)) return;
 
@@ -333,9 +354,10 @@
         }
 
         function submitOffDay() {
-            const today = new Date();
-            const dayName = arabicDays[today.getDay()];
-            const dateStr = today.toISOString().split('T')[0];
+            const dateStr = document.getElementById('work-date').value;
+            if(!dateStr) return;
+            const selectedDate = new Date(dateStr);
+            const dayName = arabicDays[selectedDate.getDay()];
             
             if (!checkDuplicateAndConfirm(dateStr, dayName)) return;
 
@@ -351,9 +373,10 @@
         }
 
         function submitFridayOff() {
-            const today = new Date();
-            const dayName = arabicDays[today.getDay()];
-            const dateStr = today.toISOString().split('T')[0];
+            const dateStr = document.getElementById('work-date').value;
+            if(!dateStr) return;
+            const selectedDate = new Date(dateStr);
+            const dayName = arabicDays[selectedDate.getDay()];
             
             if (!checkDuplicateAndConfirm(dateStr, dayName)) return;
 
@@ -377,7 +400,6 @@
             return `${hoursStr}:${minutesStr} ${ampm}`;
         }
 
-        // سكريبت تفعيل الـ Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js')
                 .then(() => console.log('Service Worker Registered Successfully!'))
