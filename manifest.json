@@ -1,9 +1,9 @@
 {
-  "short_name": "Future Sat",
-  "name": "مسجّل الساعات | Future Sat",
+  "short_name": "أبو شلبك",
+  "name": "سجل الساعات | مخبز أبو شلبك",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/8133/8133374.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/3014/3014441.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
