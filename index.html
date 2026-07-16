@@ -118,7 +118,7 @@
             document.getElementById(id).value = `${hours}:${minutes}`;
         }
 
-        // دالة لجلب البيانات سحابياً من الجوجل شيت عند تشغيل التطبيق
+        // دالة لجلب البيانات سحابياً من الجوجل شيت بدون تكرار
         async function fetchDataFromGoogle() {
             try {
                 const response = await fetch(SHEETDB_URL);
@@ -130,15 +130,23 @@
 
                 if (data.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-500">لا يوجد بيانات مسجلة بعد.</td></tr>`;
-                    document.getElementById('days-count').innerText = "0 / 15 يوم";
+                    document.getElementById('days-count').innerText = "0 يوم";
                     return;
                 }
 
-                // عرض آخر 15 يوم مسجلين بالجوجل شيت
-                const latestRecords = data.slice(-15);
+                // فلترة البيانات لحذف التكرار بناءً على التاريخ (الاحتفاظ بآخر إدخال فقط)
+                const uniqueRecordsMap = new Map();
+                data.forEach(record => {
+                    const date = record["التاريخ"];
+                    if (date) {
+                        uniqueRecordsMap.set(date, record); // الـ Map بتحدث القيمة تلقائياً لآخر إدخال
+                    }
+                });
 
-                latestRecords.forEach(record => {
-                    // استخراج القيم بناءً على أسماء أعمدة جوجل شيت
+                // تحويل الـ Map لقائمة وعرض آخر 15 يوم فريدين
+                const uniqueRecordsList = Array.from(uniqueRecordsMap.values()).slice(-15);
+
+                uniqueRecordsList.forEach(record => {
                     const day = record["اليوم"] || "---";
                     const date = record["التاريخ"] || "---";
                     let entry = record["ساعة الدخول"] || "---";
@@ -166,7 +174,7 @@
                     tbody.appendChild(row);
                 });
 
-                document.getElementById('days-count').innerText = `${latestRecords.length} / 15 يوم`;
+                document.getElementById('days-count').innerText = `${uniqueRecordsList.length} يوم فريد`;
 
             } catch (error) {
                 console.error("Error fetching data:", error);
@@ -204,21 +212,20 @@
             if (existingRow) {
                 existingRow.innerHTML = rowContent;
             } else {
-                // إذا كان الجدول ممتلئاً برسائل فارغة، فرغه أولاً
                 if (tbody.rows.length === 1 && (tbody.rows[0].cells.length === 1 || tbody.rows[0].cells[0].innerText.includes("لا يوجد"))) {
                     tbody.innerHTML = "";
                 }
                 const newRow = document.createElement('tr');
                 newRow.className = "hover:bg-slate-700/50 transition";
                 newRow.innerHTML = rowContent;
-                tbody.appendChild(newRow);
+                tbody.insertBefore(newRow, tbody.firstChild); // إضافة اليوم الجديد في أعلى الجدول
             }
 
             const uniqueDays = tbody.getElementsByTagName('tr').length;
-            document.getElementById('days-count').innerText = `${uniqueDays} / 15 يوم`;
+            document.getElementById('days-count').innerText = `${uniqueDays} يوم فريد`;
         }
 
-        // فحص التكرار لمنع الأسطر المكررة وإعطاء خيار التعديل
+        // فحص التكرار لمنع الأسطر المكررة بالواجهة وإعطاء خيار التعديل
         function checkDuplicateAndConfirm(dateStr, dayName) {
             const tbody = document.getElementById('logs-table-body');
             const rows = tbody.getElementsByTagName('tr');
@@ -252,7 +259,7 @@
             };
 
             try {
-                // فحص إذا كان اليوم موجوداً مسبقاً في جوجل شيت لتعديله (PUT) بدلاً من إضافة سطر مكرر (POST)
+                // فحص إذا كان اليوم موجوداً مسبقاً في جوجل شيت لتعديله (PUT) بدلاً من إضافة سطر مكرر
                 const checkResponse = await fetch(`${SHEETDB_URL}/search?التاريخ=${payload.date}`);
                 const existingData = await checkResponse.json();
 
@@ -274,7 +281,7 @@
                 }
                 
                 if (response.ok) {
-                    updateLocalTable(payload.day, payload.date, payload.actualHours === 0 ? payload.entry : `${payload.actualHours}0 س`, payload.discount === 0 ? "0.00 س" : `${payload.discount} س`);
+                    updateLocalTable(payload.day, payload.date, payload.actualHours === 0 ? payload.entry : `${payload.actualHours} س`, payload.discount === 0 ? "0.00 س" : `${payload.discount} س`);
                     alert("✅ تم الحفظ والتحديث في Google Sheets بنجاح يا أبو باسم!");
                 } else {
                     throw new Error("فشل الحفظ في جوجل شيت");
