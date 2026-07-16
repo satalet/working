@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>مسجّل الساعات التفاعلي | Future Sat</title>
+    <!-- رابط الـ Manifest لتعريف التطبيق للجوال -->
+    <link rel="manifest" href="manifest.json">
+    <!-- Tailwind CSS لجمالية التصميم والتجاوب مع الجوال -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght=400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -15,18 +18,22 @@
 </head>
 <body class="text-slate-100 min-h-screen flex flex-col items-center p-4">
 
+    <!-- الرأس (Header) -->
     <header class="w-full max-w-md text-center my-6">
-        <h1 class="text-2xl font-bold text-sky-400">abu shalbak 🛠️</h1>
+        <h1 class="text-2xl font-bold text-sky-400">Future Sat 🛠️</h1>
         <p class="text-slate-400 text-sm">نظام تسجيل الساعات الذكي لأبو باسم</p>
     </header>
 
+    <!-- بطاقة التحكم الرئيسية -->
     <main class="w-full max-w-md bg-slate-800 rounded-2xl shadow-xl border border-slate-700 p-6 space-y-6">
         
+        <!-- عرض تاريخ اليوم واليوم الحالي تلقائياً -->
         <div class="bg-slate-900 rounded-xl p-4 text-center border border-slate-700">
             <div id="current-day-name" class="text-xl font-bold text-emerald-400">---</div>
             <div id="current-date" class="text-sm text-slate-400 mt-1">---</div>
         </div>
 
+        <!-- خانات إدخال الوقت -->
         <div class="space-y-4">
             <div>
                 <label class="block text-sm font-semibold text-slate-300 mb-1">⏰ ساعة الدخول:</label>
@@ -45,6 +52,7 @@
             </div>
         </div>
 
+        <!-- أزرار الإجراءات السريعة -->
         <div class="grid grid-cols-2 gap-3 pt-2">
             <button id="btn-save" onclick="submitWorkDay()" class="col-span-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold py-3 rounded-xl shadow-lg transition duration-200">
                 💾 حفظ يوم عمل
@@ -59,6 +67,7 @@
 
     </main>
 
+    <!-- جدول عرض السجل (تفاعلي) -->
     <section class="w-full max-w-md mt-8 space-y-4">
         <div class="flex justify-between items-center px-1">
             <h2 class="text-lg font-bold text-sky-400">📋 السجل الحالي (15 يوم)</h2>
@@ -76,11 +85,13 @@
                     </tr>
                 </thead>
                 <tbody id="logs-table-body" class="divide-y divide-slate-700 text-slate-300">
-                    </tbody>
+                    <!-- البيانات بتنزل هون ديناميكياً -->
+                </tbody>
             </table>
         </div>
     </section>
 
+    <!-- كود التشغيل والمنطق التفاعلي والربط السحابي -->
     <script>
         // رابط الـ SheetDB الخاص بك يا أبو باسم
         const SHEETDB_URL = "https://sheetdb.io/api/v1/053k5ng1d1rqw"; 
@@ -279,6 +290,13 @@
             const minutesStr = String(minutes).padStart(2, '0');
             const hoursStr = String(hours).padStart(2, '0');
             return `${hoursStr}:${minutesStr} ${ampm}`;
+        }
+
+        // سكريبت تفعيل الـ Service Worker عشان يدعم التثبيت كتطبيق
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(() => console.log('Service Worker Registered Successfully!'))
+                .catch((err) => console.log('Service Worker Registration Failed!', err));
         }
     </script>
 </body>
