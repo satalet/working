@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>مسجّل الساعات التفاعلي | Future Sat</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght=400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Cairo', sans-serif;
@@ -82,8 +82,8 @@
     </section>
 
     <script>
-        // ⚠️ استبدل هاد الرابط بالرابط الطويل اللي نسخته من ويب اب جوجل (Web app URL)
-        const GOOGLE_SCRIPT_URL = "ضع_رابط_جوجل_هنا";
+        // رابط الـ SheetDB الخاص بك يا أبو باسم
+        const SHEETDB_URL = "https://sheetdb.io/api/v1/053k5ng1d1rqw"; 
 
         const arabicDays = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
@@ -102,13 +102,12 @@
             document.getElementById(id).value = `${hours}:${minutes}`;
         }
 
-        // دالة لإضافة أو تعديل السطر في الجدول المحلي بالواجهة لتجنب التكرار
+        // دالة لتعديل أو إضافة السطر بالجدول المحلي التفاعلي
         function updateLocalTable(day, date, hoursStr, discountStr) {
             const tbody = document.getElementById('logs-table-body');
             const rows = tbody.getElementsByTagName('tr');
             let existingRow = null;
 
-            // الفحص إذا التاريخ موجود مسبقاً بالجدول
             for (let i = 0; i < rows.length; i++) {
                 const cells = rows[i].getElementsByTagName('td');
                 if (cells.length > 1 && cells[1].innerText.trim() === date) {
@@ -117,7 +116,6 @@
                 }
             }
 
-            // تجهيز لون ساعات العمل
             let hoursColor = "text-emerald-400";
             if (hoursStr.includes("عطلة")) {
                 hoursColor = "text-amber-400";
@@ -131,64 +129,70 @@
             `;
 
             if (existingRow) {
-                // تعديل السطر الموجود
                 existingRow.innerHTML = rowContent;
             } else {
-                // إضافة سطر جديد بالكامل
                 const newRow = document.createElement('tr');
                 newRow.className = "hover:bg-slate-700/50 transition";
                 newRow.innerHTML = rowContent;
                 tbody.appendChild(newRow);
             }
 
-            // تحديث عداد الأيام الإجمالي بناءً على الأسطر الفعلية بالجدول
             const uniqueDays = tbody.getElementsByTagName('tr').length;
             document.getElementById('days-count').innerText = `${uniqueDays} / 15 يوم`;
         }
 
-        // فحص التكرار وإعطاء خيار التعديل قبل الحفظ
+        // فحص التكرار وإعطاء خيار التعديل قبل الإرسال
         function checkDuplicateAndConfirm(dateStr, dayName) {
             const tbody = document.getElementById('logs-table-body');
             const rows = tbody.getElementsByTagName('tr');
             for (let i = 0; i < rows.length; i++) {
                 const cells = rows[i].getElementsByTagName('td');
                 if (cells.length > 1 && cells[1].innerText.trim() === dateStr) {
-                    return confirm(`⚠️ تنبيه: بيانات يوم (${dayName} - ${dateStr}) مسجلة مسبقاً بالجدول!\n\nهل تريد إعادة تسجيل وتعديل بيانات هذا اليوم؟`);
+                    return confirm(`⚠️ تنبيه: بيانات يوم (${dayName} - ${dateStr}) مسجلة مسبقاً!\n\nهل تريد إعادة تسجيل وتعديل بيانات هذا اليوم في جوجل شيت؟`);
                 }
             }
-            return true; // إذا اليوم مش مكرر بنكمل علطول
+            return true;
         }
 
-        // دالة لإرسال البيانات إلى جوجل شيت سحابياً
+        // دالة لإرسال البيانات إلى جوجل شيت عبر SheetDB
         async function sendDataToGoogle(payload) {
-            if (GOOGLE_SCRIPT_URL === "ضع_رابط_جوجل_هنا") {
-                // إذا لسه ما ربطنا جوجل شيت، بنحفظها بالجدول المحلي عشان تتأكد من التجربة
-                updateLocalTable(payload.day, payload.date, payload.actualHours === 0 ? payload.entry : `${payload.actualHours} س`, payload.discount === 0 ? "0.00 س" : `${payload.discount} س`);
-                alert("🎉 تم الحفظ محلياً بالجدول تحت بنجاح!\n(يرجى ربط الـ Google Sheets لتخزينها سحابياً)");
-                return;
-            }
-
             const btnSave = document.getElementById('btn-save');
             const originalText = btnSave.innerText;
             btnSave.innerText = "⏳ جاري الحفظ سحابياً...";
             btnSave.disabled = true;
 
+            // تنسيق البيانات للأعمدة في شيت جوجل الخاص بك
+            const formattedData = {
+                data: [
+                    {
+                        "اليوم": payload.day,
+                        "التاريخ": payload.date,
+                        "ساعة الدخول": payload.entry,
+                        "ساعة الخروج": payload.exit,
+                        "ساعات العمل الفعلية": payload.actualHours,
+                        "الخصم (ساعة)": payload.discount
+                    }
+                ]
+            };
+
             try {
-                await fetch(GOOGLE_SCRIPT_URL, {
+                const response = await fetch(SHEETDB_URL, {
                     method: "POST",
-                    mode: "no-cors", 
                     headers: {
                         "Content-Type": "application/json"
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(formattedData)
                 });
                 
-                // تحديث الجدول المحلي بعد النجاح السحابي
-                updateLocalTable(payload.day, payload.date, payload.actualHours === 0 ? payload.entry : `${payload.actualHours} س`, payload.discount === 0 ? "0.00 س" : `${payload.discount} س`);
-                alert("✅ تم إرسال البيانات وحفظها في Google Sheets بنجاح يا أبو باسم!");
+                if (response.ok) {
+                    updateLocalTable(payload.day, payload.date, payload.actualHours === 0 ? payload.entry : `${payload.actualHours} س`, payload.discount === 0 ? "0.00 س" : `${payload.discount} س`);
+                    alert("✅ تم الحفظ في Google Sheets بنجاح يا أبو باسم وبدون أي حظر حماية!");
+                } else {
+                    throw new Error("فشل الحفظ في جوجل شيت");
+                }
             } catch (error) {
                 console.error("Error sending data:", error);
-                alert("❌ حدث خطأ أثناء الحفظ السحابي، تفقد اتصالك بالإنترنت!");
+                alert("❌ حدث خطأ أثناء الحفظ، تفقد اتصالك بالإنترنت!");
             } finally {
                 btnSave.innerText = originalText;
                 btnSave.disabled = false;
@@ -200,7 +204,6 @@
             const dayName = arabicDays[today.getDay()];
             const dateStr = today.toISOString().split('T')[0];
             
-            // فحص التكرار أولاً
             if (!checkDuplicateAndConfirm(dateStr, dayName)) return;
 
             const entryVal = document.getElementById('entry-time').value;
