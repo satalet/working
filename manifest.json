@@ -1,0 +1,17 @@
+{
+  "short_name": "Future Sat",
+  "name": "مسجّل الساعات | Future Sat",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/8133/8133374.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/working/",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "display": "standalone",
+  "orientation": "portrait"
+}
