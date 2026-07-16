@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مسجّل الساعات التفاعلي | abu shalbak</title>
+    <title>مسجّل الساعات التفاعلي | مخبز أبو شلبك</title>
     <!-- رابط الـ Manifest لتعريف التطبيق للجوال -->
-    <link rel="manifest" href="manifest.json">
+    <link class="main-manifest" rel="manifest" href="manifest.json">
     <!-- Tailwind CSS لجمالية التصميم والتجاوب مع الجوال -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght=400;600;700&display=swap" rel="stylesheet">
@@ -20,7 +20,7 @@
 
     <!-- الرأس (Header) -->
     <header class="w-full max-w-md text-center my-6">
-        <h1 class="text-2xl font-bold text-sky-400">Future Sat 🛠️</h1>
+        <h1 class="text-2xl font-bold text-sky-400">مخبز أبو شلبك 🥖</h1>
         <p class="text-slate-400 text-sm">نظام تسجيل الساعات الذكي لأبو باسم</p>
     </header>
 
@@ -67,11 +67,11 @@
 
     </main>
 
-    <!-- جدول عرض السجل (تفاعلي) -->
+    <!-- جدول عرض السجل (تفاعلي متصل سحابياً) -->
     <section class="w-full max-w-md mt-8 space-y-4">
         <div class="flex justify-between items-center px-1">
-            <h2 class="text-lg font-bold text-sky-400">📋 السجل الحالي (15 يوم)</h2>
-            <span id="days-count" class="bg-slate-800 border border-slate-700 text-xs text-slate-300 px-2.5 py-1 rounded-full">0 / 15 يوم</span>
+            <h2 class="text-lg font-bold text-sky-400">📋 السجل الحالي من السحاب</h2>
+            <span id="days-count" class="bg-slate-800 border border-slate-700 text-xs text-slate-300 px-2.5 py-1 rounded-full">⏳ جاري التحميل...</span>
         </div>
 
         <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-lg">
@@ -85,7 +85,9 @@
                     </tr>
                 </thead>
                 <tbody id="logs-table-body" class="divide-y divide-slate-700 text-slate-300">
-                    <!-- البيانات بتنزل هون ديناميكياً -->
+                    <tr>
+                        <td colspan="4" class="p-6 text-center text-slate-500">جاري جلب البيانات من Google Sheets...</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -104,6 +106,9 @@
             document.getElementById('current-date').innerText = today.toISOString().split('T')[0];
             document.getElementById('entry-time').value = "07:00";
             document.getElementById('exit-time').value = "18:30";
+            
+            // جلب البيانات المخزنة من جوجل شيت فور فتح الصفحة
+            fetchDataFromGoogle();
         };
 
         function setCurrentTime(id) {
@@ -113,7 +118,64 @@
             document.getElementById(id).value = `${hours}:${minutes}`;
         }
 
-        // دالة لتعديل أو إضافة السطر بالجدول المحلي التفاعلي
+        // دالة لجلب البيانات سحابياً من الجوجل شيت عند تشغيل التطبيق
+        async function fetchDataFromGoogle() {
+            try {
+                const response = await fetch(SHEETDB_URL);
+                if (!response.ok) throw new Error("فشل جلب البيانات");
+                const data = await response.json();
+                
+                const tbody = document.getElementById('logs-table-body');
+                tbody.innerHTML = ""; // تفريغ رسالة التحميل
+
+                if (data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-500">لا يوجد بيانات مسجلة بعد.</td></tr>`;
+                    document.getElementById('days-count').innerText = "0 / 15 يوم";
+                    return;
+                }
+
+                // عرض آخر 15 يوم مسجلين بالجوجل شيت
+                const latestRecords = data.slice(-15);
+
+                latestRecords.forEach(record => {
+                    // استخراج القيم بناءً على أسماء أعمدة جوجل شيت
+                    const day = record["اليوم"] || "---";
+                    const date = record["التاريخ"] || "---";
+                    let entry = record["ساعة الدخول"] || "---";
+                    let actualHours = record["ساعات العمل الفعلية"] || "0";
+                    const discount = record["الخصم (ساعة)"] || "0";
+
+                    let hoursStr = "";
+                    let hoursColor = "text-emerald-400";
+
+                    if (entry.includes("عطلة")) {
+                        hoursStr = entry;
+                        hoursColor = "text-amber-400";
+                    } else {
+                        hoursStr = `${parseFloat(actualHours).toFixed(2)} س`;
+                    }
+
+                    const row = document.createElement('tr');
+                    row.className = "hover:bg-slate-700/50 transition";
+                    row.innerHTML = `
+                        <td class="p-3 text-center font-semibold text-slate-200">${day}</td>
+                        <td class="p-3 text-center text-xs text-slate-400">${date}</td>
+                        <td class="p-3 text-center ${hoursColor}">${hoursStr}</td>
+                        <td class="p-3 text-center text-rose-400">${parseFloat(discount).toFixed(2)} س</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                document.getElementById('days-count').innerText = `${latestRecords.length} / 15 يوم`;
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                document.getElementById('logs-table-body').innerHTML = `<tr><td colspan="4" class="p-6 text-center text-rose-400">❌ فشل تحميل البيانات السحابية!</td></tr>`;
+                document.getElementById('days-count').innerText = "خطأ بالاتصال";
+            }
+        }
+
+        // دالة لتحديث السطر بالجدول المحلي بعد الحفظ مباشرة دون الحاجة لإعادة تحميل الصفحة بالكامل
         function updateLocalTable(day, date, hoursStr, discountStr) {
             const tbody = document.getElementById('logs-table-body');
             const rows = tbody.getElementsByTagName('tr');
@@ -142,6 +204,10 @@
             if (existingRow) {
                 existingRow.innerHTML = rowContent;
             } else {
+                // إذا كان الجدول ممتلئاً برسائل فارغة، فرغه أولاً
+                if (tbody.rows.length === 1 && (tbody.rows[0].cells.length === 1 || tbody.rows[0].cells[0].innerText.includes("لا يوجد"))) {
+                    tbody.innerHTML = "";
+                }
                 const newRow = document.createElement('tr');
                 newRow.className = "hover:bg-slate-700/50 transition";
                 newRow.innerHTML = rowContent;
@@ -152,7 +218,7 @@
             document.getElementById('days-count').innerText = `${uniqueDays} / 15 يوم`;
         }
 
-        // فحص التكرار وإعطاء خيار التعديل قبل الإرسال
+        // فحص التكرار لمنع الأسطر المكررة وإعطاء خيار التعديل
         function checkDuplicateAndConfirm(dateStr, dayName) {
             const tbody = document.getElementById('logs-table-body');
             const rows = tbody.getElementsByTagName('tr');
@@ -165,14 +231,13 @@
             return true;
         }
 
-        // دالة لإرسال البيانات إلى جوجل شيت عبر SheetDB
+        // دالة إرسال البيانات إلى جوجل شيت وتحديث السجل
         async function sendDataToGoogle(payload) {
             const btnSave = document.getElementById('btn-save');
             const originalText = btnSave.innerText;
             btnSave.innerText = "⏳ جاري الحفظ سحابياً...";
             btnSave.disabled = true;
 
-            // تنسيق البيانات للأعمدة في شيت جوجل الخاص بك
             const formattedData = {
                 data: [
                     {
@@ -187,17 +252,30 @@
             };
 
             try {
-                const response = await fetch(SHEETDB_URL, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(formattedData)
-                });
+                // فحص إذا كان اليوم موجوداً مسبقاً في جوجل شيت لتعديله (PUT) بدلاً من إضافة سطر مكرر (POST)
+                const checkResponse = await fetch(`${SHEETDB_URL}/search?التاريخ=${payload.date}`);
+                const existingData = await checkResponse.json();
+
+                let response;
+                if (existingData && existingData.length > 0) {
+                    // تحديث السطر الموجود مسبقاً لمنع التكرار سحابياً
+                    response = await fetch(`${SHEETDB_URL}/التاريخ/${payload.date}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(formattedData)
+                    });
+                } else {
+                    // إضافة سطر جديد بالكامل إذا لم يكن مسجلاً
+                    response = await fetch(SHEETDB_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(formattedData)
+                    });
+                }
                 
                 if (response.ok) {
-                    updateLocalTable(payload.day, payload.date, payload.actualHours === 0 ? payload.entry : `${payload.actualHours} س`, payload.discount === 0 ? "0.00 س" : `${payload.discount} س`);
-                    alert("✅ تم الحفظ في Google Sheets بنجاح يا أبو باسم وبدون أي حظر حماية!");
+                    updateLocalTable(payload.day, payload.date, payload.actualHours === 0 ? payload.entry : `${payload.actualHours}0 س`, payload.discount === 0 ? "0.00 س" : `${payload.discount} س`);
+                    alert("✅ تم الحفظ والتحديث في Google Sheets بنجاح يا أبو باسم!");
                 } else {
                     throw new Error("فشل الحفظ في جوجل شيت");
                 }
@@ -292,7 +370,7 @@
             return `${hoursStr}:${minutesStr} ${ampm}`;
         }
 
-        // سكريبت تفعيل الـ Service Worker عشان يدعم التثبيت كتطبيق
+        // سكريبت تفعيل الـ Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js')
                 .then(() => console.log('Service Worker Registered Successfully!'))
