@@ -46,13 +46,13 @@
         </div>
 
         <div class="grid grid-cols-2 gap-3 pt-2">
-            <button onclick="submitWorkDay()" class="col-span-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold py-3 rounded-xl shadow-lg transition duration-200">
+            <button id="btn-save" onclick="submitWorkDay()" class="col-span-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold py-3 rounded-xl shadow-lg transition duration-200">
                 💾 حفظ يوم عمل
             </button>
-            <button onclick="submitOffDay()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2.5 rounded-lg transition">
+            <button id="btn-off" onclick="submitOffDay()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-2.5 rounded-lg transition">
                 🌴 تسجيل عطلة
             </button>
-            <button onclick="submitFridayOff()" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2.5 rounded-lg transition">
+            <button id="btn-friday" onclick="submitFridayOff()" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2.5 rounded-lg transition">
                 🕌 عطلة الجمعة
             </button>
         </div>
@@ -82,23 +82,19 @@
     </section>
 
     <script>
-        // مصفوفة الأيام بالعربي
+        // ⚠️ استبدل هاد الرابط بالرابط الطويل اللي نسخته من ويب اب جوجل (Web app URL)
+        const GOOGLE_SCRIPT_URL = "ضع_رابط_جوجل_هنا";
+
         const arabicDays = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
-        // تشغيل فوري لتحديد تاريخ ووقت اليوم
         window.onload = function() {
             const today = new Date();
-            
-            // تحديد اسم اليوم وتاريخه
             document.getElementById('current-day-name').innerText = arabicDays[today.getDay()];
             document.getElementById('current-date').innerText = today.toISOString().split('T')[0];
-
-            // وضع وقت افتراضي ذكي (مثلا الدخول 7 الصبح والخروج 6:30 المسا) لو حب يسجل علطول
             document.getElementById('entry-time').value = "07:00";
             document.getElementById('exit-time').value = "18:30";
         };
 
-        // دالة لتعبئة الوقت الحالي بكبسة زر
         function setCurrentTime(id) {
             const now = new Date();
             const hours = String(now.getHours()).padStart(2, '0');
@@ -106,16 +102,97 @@
             document.getElementById(id).value = `${hours}:${minutes}`;
         }
 
-        // دالة تجريبية لحفظ اليوم وعرضه بالجدول تحت مؤقتاً
-        function addRowToTable(day, date, hours, discount) {
+        // دالة لإضافة أو تعديل السطر في الجدول المحلي بالواجهة لتجنب التكرار
+        function updateLocalTable(day, date, hoursStr, discountStr) {
             const tbody = document.getElementById('logs-table-body');
-            const row = `<tr class="hover:bg-slate-700/50 transition">
+            const rows = tbody.getElementsByTagName('tr');
+            let existingRow = null;
+
+            // الفحص إذا التاريخ موجود مسبقاً بالجدول
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i].getElementsByTagName('td');
+                if (cells.length > 1 && cells[1].innerText.trim() === date) {
+                    existingRow = rows[i];
+                    break;
+                }
+            }
+
+            // تجهيز لون ساعات العمل
+            let hoursColor = "text-emerald-400";
+            if (hoursStr.includes("عطلة")) {
+                hoursColor = "text-amber-400";
+            }
+
+            const rowContent = `
                 <td class="p-3 text-center font-semibold text-slate-200">${day}</td>
                 <td class="p-3 text-center text-xs text-slate-400">${date}</td>
-                <td class="p-3 text-center text-emerald-400">${hours} س</td>
-                <td class="p-3 text-center text-rose-400">${discount} س</td>
-            </tr>`;
-            tbody.innerHTML += row;
+                <td class="p-3 text-center ${hoursColor}">${hoursStr}</td>
+                <td class="p-3 text-center text-rose-400">${discountStr}</td>
+            `;
+
+            if (existingRow) {
+                // تعديل السطر الموجود
+                existingRow.innerHTML = rowContent;
+            } else {
+                // إضافة سطر جديد بالكامل
+                const newRow = document.createElement('tr');
+                newRow.className = "hover:bg-slate-700/50 transition";
+                newRow.innerHTML = rowContent;
+                tbody.appendChild(newRow);
+            }
+
+            // تحديث عداد الأيام الإجمالي بناءً على الأسطر الفعلية بالجدول
+            const uniqueDays = tbody.getElementsByTagName('tr').length;
+            document.getElementById('days-count').innerText = `${uniqueDays} / 15 يوم`;
+        }
+
+        // فحص التكرار وإعطاء خيار التعديل قبل الحفظ
+        function checkDuplicateAndConfirm(dateStr, dayName) {
+            const tbody = document.getElementById('logs-table-body');
+            const rows = tbody.getElementsByTagName('tr');
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i].getElementsByTagName('td');
+                if (cells.length > 1 && cells[1].innerText.trim() === dateStr) {
+                    return confirm(`⚠️ تنبيه: بيانات يوم (${dayName} - ${dateStr}) مسجلة مسبقاً بالجدول!\n\nهل تريد إعادة تسجيل وتعديل بيانات هذا اليوم؟`);
+                }
+            }
+            return true; // إذا اليوم مش مكرر بنكمل علطول
+        }
+
+        // دالة لإرسال البيانات إلى جوجل شيت سحابياً
+        async function sendDataToGoogle(payload) {
+            if (GOOGLE_SCRIPT_URL === "ضع_رابط_جوجل_هنا") {
+                // إذا لسه ما ربطنا جوجل شيت، بنحفظها بالجدول المحلي عشان تتأكد من التجربة
+                updateLocalTable(payload.day, payload.date, payload.actualHours === 0 ? payload.entry : `${payload.actualHours} س`, payload.discount === 0 ? "0.00 س" : `${payload.discount} س`);
+                alert("🎉 تم الحفظ محلياً بالجدول تحت بنجاح!\n(يرجى ربط الـ Google Sheets لتخزينها سحابياً)");
+                return;
+            }
+
+            const btnSave = document.getElementById('btn-save');
+            const originalText = btnSave.innerText;
+            btnSave.innerText = "⏳ جاري الحفظ سحابياً...";
+            btnSave.disabled = true;
+
+            try {
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: "POST",
+                    mode: "no-cors", 
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                // تحديث الجدول المحلي بعد النجاح السحابي
+                updateLocalTable(payload.day, payload.date, payload.actualHours === 0 ? payload.entry : `${payload.actualHours} س`, payload.discount === 0 ? "0.00 س" : `${payload.discount} س`);
+                alert("✅ تم إرسال البيانات وحفظها في Google Sheets بنجاح يا أبو باسم!");
+            } catch (error) {
+                console.error("Error sending data:", error);
+                alert("❌ حدث خطأ أثناء الحفظ السحابي، تفقد اتصالك بالإنترنت!");
+            } finally {
+                btnSave.innerText = originalText;
+                btnSave.disabled = false;
+            }
         }
 
         function submitWorkDay() {
@@ -123,6 +200,9 @@
             const dayName = arabicDays[today.getDay()];
             const dateStr = today.toISOString().split('T')[0];
             
+            // فحص التكرار أولاً
+            if (!checkDuplicateAndConfirm(dateStr, dayName)) return;
+
             const entryVal = document.getElementById('entry-time').value;
             const exitVal = document.getElementById('exit-time').value;
 
@@ -131,35 +211,71 @@
                 return;
             }
 
-            // حساب الساعات بشكل تجريبي بالواجهة
             const [entryH, entryM] = entryVal.split(':').map(Number);
             const [exitH, exitM] = exitVal.split(':').map(Number);
             
             let diffMs = ((exitH * 60 + exitM) - (entryH * 60 + entryM)) * 60000;
-            if(diffMs < 0) diffMs += 24 * 60 * 60 * 1000; // لو الخروج بعد منتصف الليل
+            if(diffMs < 0) diffMs += 24 * 60 * 60 * 1000; 
 
             const actualHours = (diffMs / 3600000).toFixed(2);
             const requiredHours = 12.0;
             const discount = actualHours < requiredHours ? (requiredHours - actualHours).toFixed(2) : "0.00";
 
-            addRowToTable(dayName, dateStr, actualHours, discount);
-            alert(`🎉 تم حفظ بيانات اليوم بنجاح!\nساعات العمل: ${actualHours} ساعة\nالخصم: ${discount} ساعة`);
+            const payload = {
+                day: dayName,
+                date: dateStr,
+                entry: formatAMPM(entryH, entryM),
+                exit: formatAMPM(exitH, exitM),
+                actualHours: actualHours,
+                discount: discount
+            };
+
+            sendDataToGoogle(payload);
         }
 
         function submitOffDay() {
             const today = new Date();
             const dayName = arabicDays[today.getDay()];
             const dateStr = today.toISOString().split('T')[0];
-            addRowToTable(dayName, dateStr, "عطلة", "0.00");
-            alert("🌴 تم تسجيل اليوم كـ عطلة بنجاح!");
+            
+            if (!checkDuplicateAndConfirm(dateStr, dayName)) return;
+
+            const payload = {
+                day: dayName,
+                date: dateStr,
+                entry: "عطلة",
+                exit: "عطلة",
+                actualHours: 0,
+                discount: 0
+            };
+            sendDataToGoogle(payload);
         }
 
         function submitFridayOff() {
             const today = new Date();
             const dayName = arabicDays[today.getDay()];
             const dateStr = today.toISOString().split('T')[0];
-            addRowToTable(dayName, dateStr, "عطلة الجمعة", "0.00");
-            alert("🕌 تم تسجيل عطلة الجمعة بنجاح بدون أي خصومات!");
+            
+            if (!checkDuplicateAndConfirm(dateStr, dayName)) return;
+
+            const payload = {
+                day: dayName,
+                date: dateStr,
+                entry: "عطلة الجمعة",
+                exit: "عطلة الجمعة",
+                actualHours: 0,
+                discount: 0
+            };
+            sendDataToGoogle(payload);
+        }
+
+        function formatAMPM(hours, minutes) {
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; 
+            const minutesStr = String(minutes).padStart(2, '0');
+            const hoursStr = String(hours).padStart(2, '0');
+            return `${hoursStr}:${minutesStr} ${ampm}`;
         }
     </script>
 </body>
