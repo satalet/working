@@ -92,6 +92,13 @@
                         <td colspan="4" class="p-6 text-center text-slate-500">جاري جلب البيانات من Google Sheets...</td>
                     </tr>
                 </tbody>
+                <!-- السطر الإجمالي لحساب مجموع الخصومات -->
+                <tfoot class="bg-slate-900/80 border-t border-slate-700 font-bold text-slate-200">
+                    <tr>
+                        <td colspan="3" class="p-3 text-left pl-6 text-slate-400 font-medium">مجموع ساعات الخصم الحالية:</td>
+                        <td id="total-discount" class="p-3 text-center text-rose-400 text-base">0.00 س</td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </section>
@@ -104,7 +111,6 @@
         const arabicDays = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
         window.onload = function() {
-            // حل مشكلة التوقيت المحلي الفعلي للجهاز
             const localToday = new Date();
             const offset = localToday.getTimezoneOffset();
             const adjustedDate = new Date(localToday.getTime() - (offset * 60 * 1000));
@@ -117,11 +123,9 @@
             document.getElementById('entry-time').value = "07:00";
             document.getElementById('exit-time').value = "18:30";
             
-            // جلب البيانات المخزنة من جوجل شيت فور فتح الصفحة
             fetchDataFromGoogle();
         };
 
-        // تحديث اسم اليوم تلقائياً عند تغيير التاريخ بالخانة
         function updateDayName() {
             const dateVal = document.getElementById('work-date').value;
             if (dateVal) {
@@ -137,7 +141,25 @@
             document.getElementById(id).value = `${hours}:${minutes}`;
         }
 
-        // جلب البيانات سحابياً من الجوجل شيت بدون تكرار
+        // دالة مخصصة لجمع خانات الخصم تلقائياً من الجدول
+        function calculateTotalDiscount() {
+            const tbody = document.getElementById('logs-table-body');
+            const rows = tbody.getElementsByTagName('tr');
+            let total = 0;
+
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i].getElementsByTagName('td');
+                if (cells.length > 3) {
+                    const discountText = cells[3].innerText.replace('س', '').trim();
+                    const discountVal = parseFloat(discountText);
+                    if (!isNaN(discountVal)) {
+                        total += discountVal;
+                    }
+                }
+            }
+            document.getElementById('total-discount').innerText = `${total.toFixed(2)} س`;
+        }
+
         async function fetchDataFromGoogle() {
             try {
                 const response = await fetch(SHEETDB_URL);
@@ -145,15 +167,15 @@
                 const data = await response.json();
                 
                 const tbody = document.getElementById('logs-table-body');
-                tbody.innerHTML = ""; // تفريغ رسالة التحميل
+                tbody.innerHTML = ""; 
 
                 if (data.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-500">لا يوجد بيانات مسجلة بعد.</td></tr>`;
                     document.getElementById('days-count').innerText = "0 يوم";
+                    document.getElementById('total-discount').innerText = "0.00 س";
                     return;
                 }
 
-                // فلترة البيانات لحذف التكرار بناءً على التاريخ
                 const uniqueRecordsMap = new Map();
                 data.forEach(record => {
                     const date = record["التاريخ"];
@@ -162,7 +184,6 @@
                     }
                 });
 
-                // ترتيب وعرض آخر 15 يوم فريدين بالجدول
                 const uniqueRecordsList = Array.from(uniqueRecordsMap.values()).slice(-15);
 
                 uniqueRecordsList.forEach(record => {
@@ -194,6 +215,9 @@
                 });
 
                 document.getElementById('days-count').innerText = `${uniqueRecordsList.length} يوم فريد`;
+                
+                // حساب المجموع بعد الانتهاء من رص السطور
+                calculateTotalDiscount();
 
             } catch (error) {
                 console.error("Error fetching data:", error);
@@ -202,7 +226,6 @@
             }
         }
 
-        // تحديث السطر بالجدول المحلي بعد الحفظ مباشرة
         function updateLocalTable(day, date, hoursStr, discountStr) {
             const tbody = document.getElementById('logs-table-body');
             const rows = tbody.getElementsByTagName('tr');
@@ -242,9 +265,11 @@
 
             const uniqueDays = tbody.getElementsByTagName('tr').length;
             document.getElementById('days-count').innerText = `${uniqueDays} يوم فريد`;
+            
+            // إعادة الحساب فوراً لتحديث المجموع بالواجهة
+            calculateTotalDiscount();
         }
 
-        // فحص التكرار لمنع الأسطر المكررة بالواجهة وإعطاء خيار التعديل
         function checkDuplicateAndConfirm(dateStr, dayName) {
             const tbody = document.getElementById('logs-table-body');
             const rows = tbody.getElementsByTagName('tr');
@@ -257,7 +282,6 @@
             return true;
         }
 
-        // إرسال البيانات وتحديث السجل سحابياً ومحلياً
         async function sendDataToGoogle(payload) {
             const btnSave = document.getElementById('btn-save');
             const originalText = btnSave.innerText;
@@ -278,7 +302,6 @@
             };
 
             try {
-                // فحص إذا كان اليوم موجوداً مسبقاً في جوجل شيت لتعديله (PUT)
                 const checkResponse = await fetch(`${SHEETDB_URL}/search?التاريخ=${payload.date}`);
                 const existingData = await checkResponse.json();
 
@@ -299,13 +322,13 @@
                 
                 if (response.ok) {
                     updateLocalTable(payload.day, payload.date, payload.actualHours === 0 ? payload.entry : `${payload.actualHours} س`, payload.discount === 0 ? "0.00 س" : `${payload.discount} س`);
-                    alert("✅ تم الحفظ والتحديث في Google Sheets بنجاح يا أبو باسم!");
+                    alert("✅ تم الحفظ والتحديث بنجاح يا أبو باسم!");
                 } else {
-                    throw new Error("فشل الحفظ في جوجل شيت");
+                    throw new Error("فشل الحفظ");
                 }
             } catch (error) {
                 console.error("Error sending data:", error);
-                alert("❌ حدث خطأ أثناء الحفظ، تفقد اتصالك بالإنترنت!");
+                alert("❌ حدث خطأ أثناء الحفظ!");
             } finally {
                 btnSave.innerText = originalText;
                 btnSave.disabled = false;
@@ -314,10 +337,7 @@
 
         function submitWorkDay() {
             const dateStr = document.getElementById('work-date').value;
-            if(!dateStr) {
-                alert("الرجاء اختيار تاريخ اليوم!");
-                return;
-            }
+            if(!dateStr) return;
             const selectedDate = new Date(dateStr);
             const dayName = arabicDays[selectedDate.getDay()];
             
